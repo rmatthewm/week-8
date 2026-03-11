@@ -1,3 +1,5 @@
+import os
+import requests
 from collections import defaultdict
 
 
@@ -21,3 +23,22 @@ class MarkovText(object):
         # your code here ...
 
         return None
+
+if __name__ == '__main__':
+    # Get the corpus
+    # We can cache it to make testing easier
+    if os.path.isfile('data.txt'):
+        file = open('data.txt', 'r')
+        corpus = file.read()
+        file.close()
+
+    else:
+        # Get the data from the given url
+        url = 'https://raw.githubusercontent.com/leontoddjohnson/datasets/main/text/inspiration_quotes.txt'
+        content = requests.get(url)
+        quotes_raw = content.text
+
+        # Save the data to a text file
+        file = open('data.txt', 'w')
+        file.write(quotes_raw)
+        file.close()
