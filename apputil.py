@@ -1,13 +1,43 @@
 import os
 import requests
+import re
 from collections import defaultdict
 
 
 class MarkovText(object):
 
-    def __init__(self, corpus):
-        self.corpus = corpus
+    def __init__(self, corpus, pre_cleaned=False):
+        # Clean the corpus data given if needed
+        if pre_cleaned:
+            self.corpus = corpus
+        else:
+            self.corpus = self.clean_data(corpus)
+
+        print(self.corpus[:2000])
+
         self.term_dict = None  # you'll need to build this
+
+    def clean_data(self, corpus):
+        # Replace the new lines with spaces
+        quotes = quotes_raw.replace('\n', ' ')
+
+        # Split the quotes within quotes from the rest of the text
+        quotes = re.split("[“”]", quotes)
+
+        # Get every other line
+        quotes = quotes[1::2]
+
+        # Create one long corpus of text
+        corpus = ' '.join(quotes)
+
+        # Remove long whitespaces
+        corpus = re.sub(r"\s+", " ", corpus)
+
+        # Remove leading/trailing whitespaces
+        corpus = corpus.strip()
+
+        # Return the cleaned data
+        return corpus
 
     def get_term_dict(self):
 
@@ -29,7 +59,7 @@ if __name__ == '__main__':
     # We can cache it to make testing easier
     if os.path.isfile('data.txt'):
         file = open('data.txt', 'r')
-        corpus = file.read()
+        quotes_raw = file.read()
         file.close()
 
     else:
@@ -42,3 +72,6 @@ if __name__ == '__main__':
         file = open('data.txt', 'w')
         file.write(quotes_raw)
         file.close()
+
+    # Testing
+    gen = MarkovText(quotes_raw)
