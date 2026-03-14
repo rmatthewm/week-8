@@ -2,6 +2,7 @@ import os
 import requests
 import re
 from collections import defaultdict
+from random import randrange
 
 
 class MarkovText(object):
@@ -51,19 +52,30 @@ class MarkovText(object):
         # Now we can check every word and add the following word
         # to the dictionary depending on the repeats setting
         for i in range(len(words) - 1):
-            if include_repeats or not words[i+1] in term_dict[words[i]]:
-                term_dict[words[i]].append(words[i+1])
-
-        print(term_dict)
+            # We will make everything lowercase first before checking or adding
+            if include_repeats or not words[i+1].lower() in term_dict[words[i].lower()]:
+                term_dict[words[i].lower()].append(words[i+1].lower())
 
         return term_dict 
 
 
     def generate(self, seed_term=None, term_count=15):
+        # Get the start term from all the words
+        if seed_term is None:
+            words = list(self.term_dict.keys())
+            seed_term = words[randrange(len(words))]
 
-        # your code here ...
+        # Now run generate some number of times
+        gen_list = [seed_term]
+        for i in range(1, randrange(5, 20)):
+            # Get the selection of possible next words
+            next_words = self.term_dict[gen_list[i-1]] 
 
-        return None
+            # Pick one randomly and add it
+            gen_list.append(next_words[randrange(len(next_words))])
+
+        # Join the words together as a string and return it
+        return ' '.join(gen_list)
 
 if __name__ == '__main__':
     # Get the corpus
@@ -86,3 +98,4 @@ if __name__ == '__main__':
 
     # Testing
     gen = MarkovText(quotes_raw)
+    print(gen.generate())
