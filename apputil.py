@@ -7,7 +7,7 @@ from random import randrange
 
 class MarkovText(object):
 
-    def __init__(self, corpus, pre_cleaned=False, include_repeats=True):
+    def __init__(self, corpus, pre_cleaned=False, include_repeats=True, separate_punct=False):
         # Clean the corpus data given if needed
         if pre_cleaned:
             self.corpus = corpus
@@ -15,7 +15,7 @@ class MarkovText(object):
             self.corpus = self.clean_data(corpus)
 
         # Get the term dictionary that we will use for generation
-        self.term_dict = self.get_term_dict(include_repeats)
+        self.term_dict = self.get_term_dict(include_repeats, separate_punct)
 
     def clean_data(self, corpus):
         # Replace the new lines with spaces
@@ -39,7 +39,7 @@ class MarkovText(object):
         # Return the cleaned data
         return corpus
 
-    def get_term_dict(self, include_repeats=True):
+    def get_term_dict(self, include_repeats=True, separate_punt=False):
         # We will use a defaultdict so that every key
         # will be initialized to an empty list. Then we
         # can just append to a given key's list without
@@ -47,14 +47,56 @@ class MarkovText(object):
         term_dict = defaultdict(list)
 
         # Split the corpus into words
-        words = self.corpus.split(' ')
+        words = self.corpus.lower().split(' ')
+
+        # Currently, a single word could contain multiple tokens if we want
+        # to separate punctuation, so we need to check if there is punctuation
+        # before or after to remove.
+        if separate_punt:
+            # We cannot use a for loop because we are potentially lengthening the list
+            i = 0
+            while i < len(words) - 1:
+                # For each word, we can separate it into all its tokens then 
+                # insert it into the list again.
+                word_tokens = [] 
+                trailing_tokens = []
+                word = words[i]
+
+                # Add any leading punctuation as separate tokens
+                while len(word) > 1 and not word[0].isalnum():
+                    word_tokens.append(word[0])
+                    word = word[1:]
+
+                # Add any trailing punctuation as separate tokens 
+                while len(word) > 1 and not word[-1].isalnum():
+                    trailing_tokens.append(word[-1])
+                    word = word[:-1]
+                
+                # Reverse the trailing_tokens because we added them moving backwards
+                # and add it to the word tokens along with the word itself
+                trailing_tokens.reverse()
+                word_tokens.append(word)
+                word_tokens += trailing_tokens
+
+                # We need to splice the newly separated tokens back into the original list
+                if i == 0:
+                    words = word_tokens + words[1:]
+
+                elif i == len(words) - 1:
+                    words = words[:i] + word_tokens
+
+                else:
+                    words = words[:i] + word_tokens + words[i+1:]
+                
+                # Update i to be the next word after the splice
+                i = i + len(word_tokens)
+ 
 
         # Now we can check every word and add the following word
         # to the dictionary depending on the repeats setting
         for i in range(len(words) - 1):
-            # We will make everything lowercase first before checking or adding
-            if include_repeats or not words[i+1].lower() in term_dict[words[i].lower()]:
-                term_dict[words[i].lower()].append(words[i+1].lower())
+            if include_repeats or not words[i+1] in term_dict[words[i]]:
+                term_dict[words[i]].append(words[i+1])
 
         return term_dict 
 
@@ -65,9 +107,12 @@ class MarkovText(object):
             words = list(self.term_dict.keys())
             seed_term = words[randrange(len(words))]
 
+        if not seed_term in self.term_dict.keys():
+            raise ValueError('Invalid seed term. Must be a word from the corpus.')
+
         # Now run generate some number of times
         gen_list = [seed_term]
-        for i in range(1, randrange(5, 20)):
+        for i in range(1, term_count):
             # Get the selection of possible next words
             next_words = self.term_dict[gen_list[i-1]] 
 
@@ -97,5 +142,5 @@ if __name__ == '__main__':
         file.close()
 
     # Testing
-    gen = MarkovText(quotes_raw)
+    gen = MarkovText(quotes_raw, separate_punct=True)
     print(gen.generate())
