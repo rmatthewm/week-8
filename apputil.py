@@ -46,75 +46,70 @@ class MarkovText(object):
         # creating that key first
         term_dict = defaultdict(list)
 
-        # Split the corpus into words
-        words = self.corpus.lower().split(' ')
-
-        # Currently, a single word could contain multiple tokens if we want
-        # to separate punctuation, so we need to check if there is punctuation
-        # before or after to remove.
-        percent_complete = 0
+        # If we want to treat punctuation as separate tokens as well, they
+        # need to be separated from the words. Going through in linear time
+        # by character is the fastest approach for this I have tried.
         if separate_punt:
-            print('Separating punctuation tokens.')
-            # We cannot use a for loop because we are potentially lengthening the list
-            i = 0
-            while i < len(words) - 1:
-                # For each word, we can separate it into all its tokens then 
-                # insert it into the list again.
-                word_tokens = [] 
-                trailing_tokens = []
-                word = words[i]
+            print('Separating punctuation...')
 
-                # Add any leading punctuation as separate tokens
-                while len(word) > 1 and not word[0].isalnum():
-                    word_tokens.append(word[0])
-                    word = word[1:]
+            # Get the corpus in lowercase
+            text = self.corpus.lower()
 
-                # Add any trailing punctuation as separate tokens 
-                while len(word) > 1 and not word[-1].isalnum():
-                    trailing_tokens.append(word[-1])
-                    word = word[:-1]
-                
-                # Reverse the trailing_tokens because we added them moving backwards
-                # and add it to the word tokens along with the word itself
-                trailing_tokens.reverse()
-                word_tokens.append(word)
-                word_tokens += trailing_tokens
+            # Characters that we accumulate between punctuation and spaces
+            buffer = ''
 
-                # We need to splice the newly separated tokens back into the original list
-                if i == 0:
-                    words = word_tokens + words[1:]
+            # The words (tokens) that we are separating
+            words = []
 
-                elif i == len(words) - 1:
-                    words = words[:i] + word_tokens
+            # Info for printing a progress bar since this could take a while
+            num_chars = len(text)
+            char_count = 0
 
-                else:
-                    words = words[:i] + word_tokens + words[i+1:]
-                
-                # Update i to be the next word after the splice
-                i = i + len(word_tokens)
+            # Accumulate characters until we either hit a space or punctuation
+            for char in text:
+                # If it is a letter or number, add it to the buffer
+                if char.isalnum():
+                    buffer += char
 
-                print(f'Working on word {i} of {len(words)}', end='\r')
-                # if i // len(words) > percent_complete:
-                #     percent_complete = i // len(words)
-                #     print(f'{percent_complete} complete.')
+                # If it is a space, add what we have accumulated to the word list
+                elif char == ' ' and buffer != '':
+                    words.append(buffer)
+                    buffer = ''
 
-            print()
- 
+                # If it is punctuation, add it to the word list
+                # adding any accumulated letters first
+                elif not char.isalnum() and char != ' ':
+                    if buffer != '':
+                        words.append(buffer)
+                        buffer = ''
+
+                    words.append(char)
+
+                # Print a progress bar
+                char_count += 1
+                print(f'{100*char_count//num_chars}% checking char {char_count} of {num_chars}', end='\r')
+
+            print('Done.')
+
+        # If we don't mind having words with punctuation together as a token,
+        # we can just split at the spaces
+        else:
+            words = self.corpus.lower().split(' ')
+
 
         # Now we can check every word and add the following word
         # to the dictionary depending on the repeats setting
-        print('Building dictionary')
-        percent_complete = 0
+        print('Building dictionary...')
         for i in range(len(words) - 1):
             if include_repeats or not words[i+1] in term_dict[words[i]]:
                 term_dict[words[i]].append(words[i+1])
 
+            # Print a progress bar
             print(f'Working on word {i} of {len(words)}', end='\r')
-            # if i // len(words) > percent_complete:
-            #     percent_complete = i // len(words)
-            #     print(f'{percent_complete} complete.')
-        print()
 
+        print('Done.')
+
+        # Return the completed dictionary
         return term_dict 
 
 
@@ -161,5 +156,5 @@ if __name__ == '__main__':
         file.close()
 
     # Testing
-    gen = MarkovText(quotes_raw, separate_punct=True)
+    gen = MarkovText(quotes_raw, separate_punct=False)
     print(gen.generate())

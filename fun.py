@@ -23,7 +23,7 @@ def main():
     text_data = re.sub(r"\s+", " ", text_data)
 
     # Create the generator
-    gen = MarkovText(text_data, pre_cleaned=True, separate_punct=False)
+    gen = MarkovText(text_data, pre_cleaned=True, separate_punct=True)
     print(gen.generate())
 
 if __name__ == '__main__':
