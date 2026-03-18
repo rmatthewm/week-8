@@ -4,6 +4,45 @@ import re
 from collections import defaultdict
 from random import randrange
 
+class TokenWindow:
+    """ A wrapper for a list that provides queue-like behavior specific to the
+    sliding window used to build our MarkovText dictionary.
+    """
+
+    def __init__(self, size=1):
+        """ Constructor """
+        # The size needs to be at least 1
+        if size < 1:
+            raise ValueError('Window size must be at least 1.')
+
+        # The size of the window
+        self.__size = size
+
+        # This is the list we will use internally to store the tokens 
+        self.__list = []
+
+
+    def add_next(self, token):
+        """ Add another token to the end of the window, and if the window 
+        is at its max size, remove the first item, effectively "sliding"
+        the window.
+
+        Args:
+            token (str): the next token to slide the window over 
+        """
+        self.__list.append(token)
+        if len(self.__list) > self.__size:
+            self.__list.pop(0) 
+
+
+    def to_tuple(self):
+        """ Return the inner list as a tuple to use for hashing in a dictionary
+
+        Returns:
+            tuple: the current state of the sliding window of tokens 
+        """
+        return tuple(self.__list)
+
 
 class MarkovText(object):
 
@@ -16,6 +55,7 @@ class MarkovText(object):
 
         # Get the term dictionary that we will use for generation
         self.term_dict = self.get_term_dict(include_repeats, separate_punct)
+
 
     def clean_data(self, corpus):
         # Replace the new lines with spaces
@@ -39,6 +79,62 @@ class MarkovText(object):
         # Return the cleaned data
         return corpus
 
+
+    def separate_punctuation(self, text):
+        """ Separates the punctuation in a text as separate tokens and returns
+        the list of all tokens in order
+
+        Going through in linear time character by character is the fastest 
+        approach for this I have tried.
+
+        Args:
+            text (str): the text to be tokenized 
+
+        Returns:
+            list(str): the list of tokens 
+        """
+
+        print('Separating punctuation...')
+
+        # Characters that we accumulate between punctuation and spaces
+        buffer = ''
+
+        # The tokens that we are separating
+        tokens = []
+
+        # Info for printing a progress bar since this could take a while
+        num_chars = len(text)
+        char_count = 0
+
+        # Accumulate characters until we either hit a space or punctuation
+        for char in text:
+            # If it is a letter or number, add it to the buffer
+            if char.isalnum():
+                buffer += char
+
+            # If it is a space, add what we have accumulated to the token list
+            elif char == ' ' and buffer != '':
+                tokens.append(buffer)
+                buffer = ''
+
+            # If it is punctuation, add it to the token list
+            # adding any accumulated letters first
+            elif not char.isalnum() and char != ' ':
+                if buffer != '':
+                    tokens.append(buffer)
+                    buffer = ''
+
+                tokens.append(char)
+
+            # Print a progress bar
+            char_count += 1
+            print(f'{100*char_count//num_chars}% checking char {char_count} of {num_chars}', end='\r')
+
+        print('\nDone.')
+
+        return tokens
+
+
     def get_term_dict(self, include_repeats=True, separate_punt=False, debug=True):
         # We will use a defaultdict so that every key
         # will be initialized to an empty list. Then we
@@ -46,56 +142,20 @@ class MarkovText(object):
         # creating that key first
         term_dict = defaultdict(list)
 
-        # If we want to treat punctuation as separate tokens as well, they
-        # need to be separated from the words. Going through in linear time
-        # by character is the fastest approach for this I have tried.
+        # If we want the punctuation to be treated as separate tokens, then 
+        # separate the punctuation 
         if separate_punt:
-            print('Separating punctuation...')
 
-            # Get the corpus in lowercase
+            # Get the corpus in lower case
             text = self.corpus.lower()
 
-            # Characters that we accumulate between punctuation and spaces
-            buffer = ''
-
-            # The words (tokens) that we are separating
-            words = []
-
-            # Info for printing a progress bar since this could take a while
-            num_chars = len(text)
-            char_count = 0
-
-            # Accumulate characters until we either hit a space or punctuation
-            for char in text:
-                # If it is a letter or number, add it to the buffer
-                if char.isalnum():
-                    buffer += char
-
-                # If it is a space, add what we have accumulated to the word list
-                elif char == ' ' and buffer != '':
-                    words.append(buffer)
-                    buffer = ''
-
-                # If it is punctuation, add it to the word list
-                # adding any accumulated letters first
-                elif not char.isalnum() and char != ' ':
-                    if buffer != '':
-                        words.append(buffer)
-                        buffer = ''
-
-                    words.append(char)
-
-                # Print a progress bar
-                char_count += 1
-                print(f'{100*char_count//num_chars}% checking char {char_count} of {num_chars}', end='\r')
-
-            print('Done.')
-
+            # Tokenize the corpus including separating punctuation
+            words = self.separate_punctuation(text)
+            
         # If we don't mind having words with punctuation together as a token,
         # we can just split at the spaces
         else:
             words = self.corpus.lower().split(' ')
-
 
         # Now we can check every word and add the following word
         # to the dictionary depending on the repeats setting
@@ -107,13 +167,13 @@ class MarkovText(object):
             # Print a progress bar
             print(f'Working on word {i} of {len(words)}', end='\r')
 
-        print('Done.')
+        print('\nDone.')
 
         # Return the completed dictionary
         return term_dict 
 
 
-    def generate(self, seed_term=None, term_count=15):
+    def generate(self, seed_term=None, term_count=15, k=1):
         # Get the start term from all the words
         if seed_term is None:
             words = list(self.term_dict.keys())
