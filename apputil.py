@@ -39,7 +39,7 @@ class MarkovText(object):
         # Return the cleaned data
         return corpus
 
-    def get_term_dict(self, include_repeats=True, separate_punt=False):
+    def get_term_dict(self, include_repeats=True, separate_punt=False, debug=True):
         # We will use a defaultdict so that every key
         # will be initialized to an empty list. Then we
         # can just append to a given key's list without
@@ -52,7 +52,9 @@ class MarkovText(object):
         # Currently, a single word could contain multiple tokens if we want
         # to separate punctuation, so we need to check if there is punctuation
         # before or after to remove.
+        percent_complete = 0
         if separate_punt:
+            print('Separating punctuation tokens.')
             # We cannot use a for loop because we are potentially lengthening the list
             i = 0
             while i < len(words) - 1:
@@ -90,13 +92,28 @@ class MarkovText(object):
                 
                 # Update i to be the next word after the splice
                 i = i + len(word_tokens)
+
+                print(f'Working on word {i} of {len(words)}', end='\r')
+                # if i // len(words) > percent_complete:
+                #     percent_complete = i // len(words)
+                #     print(f'{percent_complete} complete.')
+
+            print()
  
 
         # Now we can check every word and add the following word
         # to the dictionary depending on the repeats setting
+        print('Building dictionary')
+        percent_complete = 0
         for i in range(len(words) - 1):
             if include_repeats or not words[i+1] in term_dict[words[i]]:
                 term_dict[words[i]].append(words[i+1])
+
+            print(f'Working on word {i} of {len(words)}', end='\r')
+            # if i // len(words) > percent_complete:
+            #     percent_complete = i // len(words)
+            #     print(f'{percent_complete} complete.')
+        print()
 
         return term_dict 
 
@@ -110,17 +127,19 @@ class MarkovText(object):
         if not seed_term in self.term_dict.keys():
             raise ValueError('Invalid seed term. Must be a word from the corpus.')
 
-        # Now run generate some number of times
-        gen_list = [seed_term]
-        for i in range(1, term_count):
-            # Get the selection of possible next words
-            next_words = self.term_dict[gen_list[i-1]] 
+        # Base case, if no words should be added, return an empty string
+        if term_count == 0:
+            return '' 
 
-            # Pick one randomly and add it
-            gen_list.append(next_words[randrange(len(next_words))])
+        # Get the selection of possible next words
+        next_words = self.term_dict[seed_term] 
 
-        # Join the words together as a string and return it
-        return ' '.join(gen_list)
+        # Pick one randomly
+        next_word = next_words[randrange(len(next_words))]
+
+        # Recursively generate more words and return them concatenated together
+        return next_word + ' ' + self.generate(next_word, term_count-1)
+
 
 if __name__ == '__main__':
     # Get the corpus
