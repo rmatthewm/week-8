@@ -28,6 +28,7 @@ cython_debug/
 
 # project
 .env
+MarkovCache
 
 # environment (ignore one, use the other)
 # environment.yml

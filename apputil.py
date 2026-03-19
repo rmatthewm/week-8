@@ -1,82 +1,15 @@
 import os
 import requests
 import re
+import hashlib
 from collections import defaultdict
 from random import randrange
-
-class TokenWindow:
-    """ A wrapper for a list that provides queue-like behavior specific to the
-    sliding window used to build our MarkovText dictionary.
-    """
-
-    def __init__(self, size=1, values=None):
-        # The size needs to be at least 1
-        if size < 1:
-            raise ValueError('Window size must be at least 1.')
-
-        # The size of the window
-        self.__size = size
-
-        # This is the list we will use internally to store the tokens 
-        self.__list = []
-
-        # If there are initial values, add them, assuming they fit in the
-        # window
-        if values is not None:
-            if len(values) > size:
-                raise ValueError('Initial window values cannot be larger than the window size.')
-
-            self.__list += values
-
-
-    def add_next(self, token):
-        """ Add another token to the end of the window, and if the window 
-        is at its max size, remove the first item, effectively "sliding"
-        the window.
-
-        Args:
-            token (str): the next token to slide the window over 
-        """
-        self.__list.append(token)
-        if len(self.__list) > self.__size:
-            self.__list.pop(0) 
-
-
-    def get_tuple(self):
-        """ Return the inner list as a tuple to use for hashing in a dictionary
-
-        Returns:
-            tuple: the current state of the sliding window of tokens 
-        """
-        return tuple(self.__list)
-
-    def __getitem__(self, key):
-        """ Overload the [] operators so we can access the tokens 
-        in the window
-
-        Args:
-            key (int): the key for the index of the token to return 
-
-        Returns:
-            str: the token at index key 
-        """
-        return self.__list[key]
-
-    def __str__(self):
-        """ Overload the to string method so that we can print the window for debugging 
-
-        Returns:
-            str: the string representation of the inner list 
-        """
-        return str(self.__list)
-
-    def __list__(self):
-        return self.__list
+from token_window import TokenWindow
 
 
 class MarkovText(object):
 
-    def __init__(self, corpus, k=1, pre_cleaned=False, include_repeats=True, separate_punct=False):
+    def __init__(self, corpus, k=1, pre_cleaned=False, include_repeats=True, separate_punct=False, cached=True):
         # Clean the corpus data given if needed
         if pre_cleaned:
             self.corpus = corpus
@@ -85,6 +18,9 @@ class MarkovText(object):
 
         # The window size for creating the dictionary
         self.k = k
+
+        # Whether or not to cache the dictionary to avoid long processing times later on
+        self.cached = cached
 
         # Get the term dictionary that we will use for generation
         self.term_dict = self.get_term_dict(include_repeats=include_repeats, separate_punct=separate_punct)
@@ -169,6 +105,38 @@ class MarkovText(object):
 
 
     def get_term_dict(self, include_repeats=True, separate_punct=False, debug=True):
+        # Hash the first 200 lines of the corpus, the k value, and punctuation 
+        # setting to get a unique id for this dictionary 
+        id_data = self.corpus[:200] + str(self.k) + str(separate_punct)
+        id_data_bytes = id_data.encode('utf-8')
+        dict_hash = hashlib.sha256(id_data_bytes).hexdigest()
+
+        # Check if there is a dictionary cached with this id
+        if os.path.exists(f'MarkovCache/{dict_hash}.txt') and self.cached:
+
+            # If there is, we will read in the term dictionary from the cache
+            print('Loading data from cache...')
+            with open(f'MarkovCache/{dict_hash}.txt', 'r') as file:
+                text = file.read().strip()
+
+            text = text.split('\n')
+
+            term_dict = {}
+
+            for line in text:
+                # Split the lines using our custom separator
+                key, values = line.split('<||>')
+
+                # Then split the keys and values and add them to the dictionary
+                key_tuple = tuple(key.split(' ')) 
+                term_dict[key_tuple] = values.split(' ')
+
+            print('Done.')
+
+            # Return the loaded dictionary
+            return term_dict
+
+
         # We will use a defaultdict so that every key
         # will be initialized to an empty list. Then we
         # can just append to a given key's list without
@@ -210,6 +178,32 @@ class MarkovText(object):
             print(f'Working on word {i} of {len(words)}', end='\r')
 
         print('\nDone.')
+
+        # If caching is set to be true, save the term dictionary using
+        # the hash from above as the file name. 
+        if self.cached:
+            print('Saving dictionary...') 
+
+            # If the caching folder doesn't exist, create it
+            if not os.path.exists('MarkovCache'):
+                os.mkdir('MarkovCache')
+
+            # Save the dictionary as our own custom format since we have 
+            # various punctuation marks inside 
+            with open(f'MarkovCache/{dict_hash}.txt', 'a') as file:
+                for key in list(term_dict.keys()):
+                    # First we will separate all values within a window by spaces
+                    line = ' '.join(key)
+
+                    # Then add a separator that is unlikely to occur in any text
+                    line += '<||>'
+
+                    # Then add the following words separated by spaces
+                    line += ' '.join(term_dict[key])
+                    line += '\n'
+
+                    # Write the line
+                    file.write(line)
 
         # Return the completed dictionary
         return term_dict 
@@ -273,5 +267,5 @@ if __name__ == '__main__':
         file.close()
 
     # Generate the text
-    gen = MarkovText(quotes_raw, k=2, separate_punct=True)
+    gen = MarkovText(quotes_raw, k=1, separate_punct=True, cached=True)
     print(gen.generate())
