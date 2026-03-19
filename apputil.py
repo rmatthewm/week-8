@@ -9,8 +9,7 @@ class TokenWindow:
     sliding window used to build our MarkovText dictionary.
     """
 
-    def __init__(self, size=1):
-        """ Constructor """
+    def __init__(self, size=1, values=None):
         # The size needs to be at least 1
         if size < 1:
             raise ValueError('Window size must be at least 1.')
@@ -20,6 +19,14 @@ class TokenWindow:
 
         # This is the list we will use internally to store the tokens 
         self.__list = []
+
+        # If there are initial values, add them, assuming they fit in the
+        # window
+        if values is not None:
+            if len(values) > size:
+                raise ValueError('Initial window values cannot be larger than the window size.')
+
+            self.__list += values
 
 
     def add_next(self, token):
@@ -35,7 +42,7 @@ class TokenWindow:
             self.__list.pop(0) 
 
 
-    def to_tuple(self):
+    def get_tuple(self):
         """ Return the inner list as a tuple to use for hashing in a dictionary
 
         Returns:
@@ -43,18 +50,44 @@ class TokenWindow:
         """
         return tuple(self.__list)
 
+    def __getitem__(self, key):
+        """ Overload the [] operators so we can access the tokens 
+        in the window
+
+        Args:
+            key (int): the key for the index of the token to return 
+
+        Returns:
+            str: the token at index key 
+        """
+        return self.__list[key]
+
+    def __str__(self):
+        """ Overload the to string method so that we can print the window for debugging 
+
+        Returns:
+            str: the string representation of the inner list 
+        """
+        return str(self.__list)
+
+    def __list__(self):
+        return self.__list
+
 
 class MarkovText(object):
 
-    def __init__(self, corpus, pre_cleaned=False, include_repeats=True, separate_punct=False):
+    def __init__(self, corpus, k=1, pre_cleaned=False, include_repeats=True, separate_punct=False):
         # Clean the corpus data given if needed
         if pre_cleaned:
             self.corpus = corpus
         else:
             self.corpus = self.clean_data(corpus)
 
+        # The window size for creating the dictionary
+        self.k = k
+
         # Get the term dictionary that we will use for generation
-        self.term_dict = self.get_term_dict(include_repeats, separate_punct)
+        self.term_dict = self.get_term_dict(include_repeats=include_repeats, separate_punct=separate_punct)
 
 
     def clean_data(self, corpus):
@@ -135,7 +168,7 @@ class MarkovText(object):
         return tokens
 
 
-    def get_term_dict(self, include_repeats=True, separate_punt=False, debug=True):
+    def get_term_dict(self, include_repeats=True, separate_punct=False, debug=True):
         # We will use a defaultdict so that every key
         # will be initialized to an empty list. Then we
         # can just append to a given key's list without
@@ -144,7 +177,7 @@ class MarkovText(object):
 
         # If we want the punctuation to be treated as separate tokens, then 
         # separate the punctuation 
-        if separate_punt:
+        if separate_punct:
 
             # Get the corpus in lower case
             text = self.corpus.lower()
@@ -157,12 +190,21 @@ class MarkovText(object):
         else:
             words = self.corpus.lower().split(' ')
 
-        # Now we can check every word and add the following word
-        # to the dictionary depending on the repeats setting
+        # Now we can check every window and add the following word
+        # to the dictionary depending on the repeats setting.
+        # Regardless of size, the last element in the window is element i.
         print('Building dictionary...')
         for i in range(len(words) - 1):
-            if include_repeats or not words[i+1] in term_dict[words[i]]:
-                term_dict[words[i]].append(words[i+1])
+            # Get the sliding window
+            if i - self.k + 1 < 0:
+                window = tuple(words[:i+1])
+
+            else:
+                window = tuple(words[i-self.k+1:i+1])
+
+            # Add the word that comes after this window, observing repeat setting
+            if include_repeats or not words[i+1] in term_dict[window]:
+                term_dict[window].append(words[i+1])
 
             # Print a progress bar
             print(f'Working on word {i} of {len(words)}', end='\r')
@@ -173,29 +215,44 @@ class MarkovText(object):
         return term_dict 
 
 
-    def generate(self, seed_term=None, term_count=15, k=1):
-        # Get the start term from all the words
-        if seed_term is None:
-            words = list(self.term_dict.keys())
-            seed_term = words[randrange(len(words))]
-
-        if not seed_term in self.term_dict.keys():
-            raise ValueError('Invalid seed term. Must be a word from the corpus.')
-
+    def generate_list(self, seed_window, term_count):
         # Base case, if no words should be added, return an empty string
         if term_count == 0:
-            return '' 
+            return list(seed_window) 
 
-        # Get the selection of possible next words
-        next_words = self.term_dict[seed_term] 
+        # Get the selection of possible next tokens 
+        next_tokens = self.term_dict[seed_window.get_tuple()] 
 
-        # Pick one randomly
-        next_word = next_words[randrange(len(next_words))]
+        # Get the first element in the seed window as the current element in the list 
+        current_token = seed_window[0]
 
-        # Recursively generate more words and return them concatenated together
-        return next_word + ' ' + self.generate(next_word, term_count-1)
+        # Pick a token randomly and add it to the seed window 
+        seed_window.add_next(next_tokens[randrange(len(next_tokens))])
+
+        # Recursively generate more words and return as a list
+        return [current_token] + self.generate_list(seed_window, term_count-1)
+
+    def generate(self, seed_terms=None, term_count=15):
+        # Get the starting window values from all the words
+        # if none is given
+        if seed_terms is None:
+            words = list(self.term_dict.keys())
+            seed_terms = words[randrange(len(words))]
+
+        if not seed_terms in self.term_dict.keys():
+            raise ValueError('Invalid seed term. Must be a word from the corpus.')
+
+        # Create a window object using the seed terms
+        seed_window = TokenWindow(self.k, seed_terms)
+
+        # Recursively generate a list of words
+        word_list = self.generate_list(seed_window, term_count)
+
+        # Join them into a string
+        return ' '.join(word_list)
 
 
+# Testing
 if __name__ == '__main__':
     # Get the corpus
     # We can cache it to make testing easier
@@ -215,6 +272,6 @@ if __name__ == '__main__':
         file.write(quotes_raw)
         file.close()
 
-    # Testing
-    gen = MarkovText(quotes_raw, separate_punct=False)
+    # Generate the text
+    gen = MarkovText(quotes_raw, k=2, separate_punct=True)
     print(gen.generate())
