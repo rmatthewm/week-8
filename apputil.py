@@ -133,6 +133,10 @@ class MarkovText(object):
             term_dict = {}
 
             for line in text:
+                # Ignore any blank lines
+                if line == '':
+                    continue
+
                 # Split the lines using our custom separator
                 key, values = line.split('<||>')
 
