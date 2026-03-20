@@ -3,6 +3,7 @@
 import re
 import os
 import requests
+import pandas as pd
 from apputil import MarkovText 
 
 def get_quotes():
@@ -93,12 +94,43 @@ def main():
 
     # Create the generators
     quotes_gen = MarkovText(quotes_corpus, k=1, separate_punct=True)
-    kjv_gen = MarkovText(kjv_corpus, pre_cleaned=True, k=1, separate_punct=True)
-    rv_gen = MarkovText(rv_corpus, pre_cleaned=True, k=1, separate_punct=True)
+    #kjv_gen = MarkovText(kjv_corpus, pre_cleaned=True, k=1, separate_punct=True)
+    #rv_gen = MarkovText(rv_corpus, pre_cleaned=True, k=1, separate_punct=True)
 
     print(quotes_gen.generate())
-    print(kjv_gen.generate())
-    print(rv_gen.generate())
+    #print(kjv_gen.generate())total_windows
+    #print(rv_gen.generate())
+
+    # I'm creating this dataframe here for now because I intend to run the below in a loop
+    # with different k values
+    # A data frame representing the dictionary created for a text with window size k.
+    # size is the number of windows in the term_dict and the #_opt are the number of
+    # windows with # options to choose from
+    df_markov_windows = pd.DataFrame(columns=['text', 'k', 'size', '1_opt', '2_opt', '3_opt', '4_opt', '5+_opt'])
+
+    # Use pandas to find the number of options after each window
+    # The first problem we have is that all the arrays are different lengths,
+    # so we will have to treat them as rows instead of columns 
+    df_raw = pd.DataFrame.from_dict(quotes_gen.term_dict, orient='index')
+
+    # Now we can transpose the dataframe since pandas has filled in the empty values
+    df_raw = df_raw.T
+
+    # Now we can get the count of the options for each window
+    option_counts = df_raw.agg('count')
+
+    # And get the number of windows with with each count
+    option_size_counts = option_counts.value_counts()
+
+    # Find the total number of windows in the dictionary
+    total_windows = option_size_counts.sum()
+
+    # Add the info to the markov windows dataframe
+    df_markov_windows.loc[len(df_markov_windows)] = ['quotes', 1, total_windows, option_size_counts[1], 
+            option_size_counts[2], option_size_counts[3], option_size_counts[4], option_size_counts.iloc[4:].sum()]
+
+    print(df_markov_windows.head())
+
 
 if __name__ == '__main__':
     main()
