@@ -28,7 +28,7 @@ class MarkovText(object):
 
     def clean_data(self, corpus):
         # Replace the new lines with spaces
-        quotes = quotes_raw.replace('\n', ' ')
+        quotes = corpus.replace('\n', ' ')
 
         # Split the quotes within quotes from the rest of the text
         quotes = re.split("[“”]", quotes)
