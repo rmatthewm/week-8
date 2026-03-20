@@ -53,6 +53,35 @@ def get_kjv():
         lines[i] = line
 
     text_data = ' '.join(lines)
+
+    # Remove extra spaces
+    return re.sub(r"\s+", " ", text_data)
+
+def get_rv():
+    with open('RV1909.txt', 'r') as file:
+        text_data = file.read().lower()
+
+    # Split the text into lines
+    text_lines = text_data.split('\n') 
+
+    # Remove the intro and end notes
+    text_lines = text_lines[146:4195]
+
+    # Put it back together and clean the data
+    text_data = ' '.join(text_lines)
+    text_data.replace('\n', ' ')
+    text_data.replace('\t', ' ')
+    text_data = text_data.replace('[', ' ')
+    text_data = text_data.replace(']', ' ')
+
+    # Remove the references
+    text_data.replace('capítulo', '')
+    for i in range(10):
+        # I think we can just remove all of the numbers, because any
+        # numbers in the text will be spelled out 
+        text_data.replace(f'{i}', '')
+    
+    # Remove extra spaces
     return re.sub(r"\s+", " ", text_data)
 
 
@@ -60,13 +89,16 @@ def main():
     # Get the texts
     quotes_corpus = get_quotes()
     kjv_corpus = get_kjv()
+    rv_corpus = get_rv()
 
     # Create the generators
     quotes_gen = MarkovText(quotes_corpus, k=1, separate_punct=True)
     kjv_gen = MarkovText(kjv_corpus, pre_cleaned=True, k=1, separate_punct=True)
+    rv_gen = MarkovText(rv_corpus, pre_cleaned=True, k=1, separate_punct=True)
 
     print(quotes_gen.generate())
     print(kjv_gen.generate())
+    print(rv_gen.generate())
 
 if __name__ == '__main__':
     main()
