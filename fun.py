@@ -5,6 +5,7 @@ import os
 import requests
 import pandas as pd
 from apputil import MarkovText 
+from collections import defaultdict
 
 def get_quotes():
     """ Get the corpus of quotes
@@ -95,8 +96,6 @@ def main():
     # Organize the texts with their names so that we can loop through them
     texts = [('quotes', quotes_corpus), ('kjv', kjv_corpus), ('rv', rv_corpus)]
 
-    # Create the generators
-
     # I'm creating this dataframe here for now because I intend to run the below in a loop
     # with different k values
     # A data frame representing the dictionary created for a text with window size k.
@@ -109,55 +108,41 @@ def main():
         for k in range(1, 6):
             print(f'Loading corpus {corpus[0]} with k={k}.')
             # Generate the generator
-            gen = MarkovText(corpus[1], k=k, separate_punct=True, verbose=True)
+            gen = MarkovText(corpus[1], pre_cleaned=(corpus[0] != 'quotes'), k=k, separate_punct=True, verbose=True)
 
             # Print a quote for fun while we're here
             print(f'\nGenerating a quote from {corpus[0]} with k={k}: {gen.generate()}\n')
 
-            # Use pandas to find the number of options after each window
-            # The first problem we have is that all the arrays are different lengths,
-            # so we will have to treat them as rows instead of columns 
-            df_raw = pd.DataFrame.from_dict(gen.term_dict, orient='index')
+            # NOTE: I originally used pandas to process this part as well,
+            # but it said it needed 26 GB of space for the dataframe and it
+            # could not allocate it. So even though I've been trying to use
+            # pandas more to explore using it, I would have had to modify the
+            # dictionary first anyway just to be able to create a dataframe from
+            # it, and at that point it's just simpler to cut out pandas all together.
 
-            # Now we can transpose the dataframe since pandas has filled in the empty values
-            df_raw = df_raw.T
+            # The number of windows with i + 1 number of options.
+            # When i = 4, it includes windows with 5 or more options 
+            option_size_counts = [0] * 5 
 
-            # Now we can get the count of the options for each window
-            option_counts = df_raw.agg('count')
+            # Get the term dictionary
+            term_dict = gen.term_dict
 
-            # And get the number of windows with with each count
-            option_size_counts = option_counts.value_counts()
+            for key in list(term_dict.keys()):
+                # Increment the count for the number of options for this key
+                if len(term_dict[key]) >= 5:
+                    option_size_counts[4] += 1
 
-            # Find the total number of windows in the dictionary
-            total_windows = option_size_counts.sum()
-
-            # Since there may not be any option list of a certain length,
-            # we need to check first if there is. If not, we can say there
-            # are 0 options
-            opts_for_df = [] 
-            for i in range(1, 5):
-                if i in option_size_counts:
-                    opts_for_df.append(option_size_counts[i])
                 else:
-                    opts_for_df.append(0)
+                    option_size_counts[len(term_dict[key])-1] += 1 
 
-            # The last is the number of windows with 5 or more options.
-            # I'm checking it this way instead of using the Series sum
-            # because if any option numbers are skipped, they indices 
-            # will not be lined up and the sum will be wrong. 
-            opts_for_df.append(total_windows - sum(opts_for_df))  
+            # Now we can use pandas to store the data from this run
+            df_markov_windows.loc[len(df_markov_windows)] = [corpus[0], k, sum(option_size_counts), option_size_counts[0], 
+                    option_size_counts[1], option_size_counts[2], option_size_counts[3], option_size_counts[4]]
 
-            # Add the info to the markov windows dataframe
-            df_markov_windows.loc[len(df_markov_windows)] = [corpus[0], k, total_windows, opts_for_df[0], 
-                    opts_for_df[1], opts_for_df[2], opts_for_df[3], opts_for_df[4]]
-
-    # Print the results
-    print(df_markov_windows.all())
+    # Save the results 
+    df_markov_windows.to_csv('fun_results.csv')
+    print('Results saved.')
 
 
 if __name__ == '__main__':
-    #main()
-    # Why is this working and not when in the loop above?
-    text = get_kjv()
-    gen = MarkovText(text, k=1, pre_cleaned=True, separate_punct=True, verbose=True)
-    print(gen.generate())
+    main()

@@ -18,6 +18,9 @@ cython_debug/
 *.graphml
 # *.pickle
 
+# save this one to show results in a notebook
+!fun_results.csv
+
 # notebooks
 *scratch.ipynb
 # *.ipynb
