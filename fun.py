@@ -92,6 +92,9 @@ def main():
     kjv_corpus = get_kjv()
     rv_corpus = get_rv()
 
+    # Organize the texts with their names so that we can loop through them
+    texts = [('quotes', quotes_corpus), ('kjv', kjv_corpus), ('rv', rv_corpus)]
+
     # Create the generators
     quotes_gen = MarkovText(quotes_corpus, k=1, separate_punct=True)
     #kjv_gen = MarkovText(kjv_corpus, pre_cleaned=True, k=1, separate_punct=True)

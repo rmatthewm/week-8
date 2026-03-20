@@ -9,7 +9,7 @@ from token_window import TokenWindow
 
 class MarkovText(object):
 
-    def __init__(self, corpus, k=1, pre_cleaned=False, include_repeats=True, separate_punct=False, cached=True):
+    def __init__(self, corpus, k=1, pre_cleaned=False, include_repeats=True, separate_punct=False, cached=True, verbose=False):
         # Clean the corpus data given if needed
         if pre_cleaned:
             self.corpus = corpus
@@ -21,6 +21,9 @@ class MarkovText(object):
 
         # Whether or not to cache the dictionary to avoid long processing times later on
         self.cached = cached
+
+        # Whether or not to print progress bars and info while processing data
+        self.verbose = verbose
 
         # Get the term dictionary that we will use for generation
         self.term_dict = self.get_term_dict(include_repeats=include_repeats, separate_punct=separate_punct)
@@ -63,7 +66,8 @@ class MarkovText(object):
             list(str): the list of tokens 
         """
 
-        print('Separating punctuation...')
+        if self.verbose:
+            print('Separating punctuation...')
 
         # Characters that we accumulate between punctuation and spaces
         buffer = ''
@@ -96,15 +100,17 @@ class MarkovText(object):
                 tokens.append(char)
 
             # Print a progress bar
-            char_count += 1
-            print(f'{100*char_count//num_chars}% checking char {char_count} of {num_chars}', end='\r')
+            if self.verbose:
+                char_count += 1
+                print(f'{100*char_count//num_chars}% checking char {char_count} of {num_chars}', end='\r')
 
-        print('\nDone.')
+        if self.verbose:
+            print('\nDone.')
 
         return tokens
 
 
-    def get_term_dict(self, include_repeats=True, separate_punct=False, debug=True):
+    def get_term_dict(self, include_repeats=True, separate_punct=False):
         # Hash the first 200 lines of the corpus, the k value, and punctuation 
         # setting to get a unique id for this dictionary 
         id_data = self.corpus[:200] + str(self.k) + str(separate_punct)
@@ -114,8 +120,11 @@ class MarkovText(object):
         # Check if there is a dictionary cached with this id
         if os.path.exists(f'MarkovCache/{dict_hash}.txt') and self.cached:
 
+            if self.verbose:
+                print('Loading data from cache...')
+
+            
             # If there is, we will read in the term dictionary from the cache
-            print('Loading data from cache...')
             with open(f'MarkovCache/{dict_hash}.txt', 'r') as file:
                 text = file.read().strip()
 
@@ -131,7 +140,8 @@ class MarkovText(object):
                 key_tuple = tuple(key.split(' ')) 
                 term_dict[key_tuple] = values.split(' ')
 
-            print('Done.')
+            if self.verbose:
+                print('Done.')
 
             # Return the loaded dictionary
             return term_dict
@@ -158,10 +168,12 @@ class MarkovText(object):
         else:
             words = self.corpus.lower().split(' ')
 
+        if self.verbose:
+            print('Building dictionary...')
+
         # Now we can check every window and add the following word
         # to the dictionary depending on the repeats setting.
         # Regardless of size, the last element in the window is element i.
-        print('Building dictionary...')
         for i in range(len(words) - 1):
             # Get the sliding window
             if i - self.k + 1 < 0:
@@ -175,14 +187,17 @@ class MarkovText(object):
                 term_dict[window].append(words[i+1])
 
             # Print a progress bar
-            print(f'Working on word {i} of {len(words)}', end='\r')
+            if self.verbose:
+                print(f'Working on word {i} of {len(words)}', end='\r')
 
-        print('\nDone.')
+        if self.verbose:
+            print('\nDone.')
 
         # If caching is set to be true, save the term dictionary using
         # the hash from above as the file name. 
         if self.cached:
-            print('Saving dictionary...') 
+            if self.verbose:
+                print('Saving dictionary...') 
 
             # If the caching folder doesn't exist, create it
             if not os.path.exists('MarkovCache'):
@@ -204,6 +219,9 @@ class MarkovText(object):
 
                     # Write the line
                     file.write(line)
+
+            if self.verbose:
+                print('Done.')
 
         # Return the completed dictionary
         return term_dict 
