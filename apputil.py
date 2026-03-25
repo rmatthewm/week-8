@@ -261,7 +261,7 @@ class MarkovText(object):
             words = list(self.term_dict.keys())
             seed_terms = words[randrange(len(words))]
         else:
-            seed_terms = [seed_term] 
+            seed_terms = (seed_term,) 
 
         if not seed_terms in self.term_dict.keys():
             raise ValueError('Invalid seed term. Must be a word from the corpus.')
@@ -330,3 +330,4 @@ if __name__ == '__main__':
     quotes = clean_quotes_data(quotes_raw)
     gen = MarkovText(quotes, k=1, separate_punct=True, cached=True)
     print(gen.generate())
+    print(gen.generate('test'))
