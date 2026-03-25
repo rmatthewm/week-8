@@ -9,7 +9,7 @@ from token_window import TokenWindow
 
 class MarkovText(object):
 
-    def __init__(self, corpus, k=1, pre_cleaned=False, include_repeats=True, separate_punct=False, cached=True, verbose=False):
+    def __init__(self, corpus, k=1, pre_cleaned=True, include_repeats=True, separate_punct=False, cached=True, verbose=False):
         # Clean the corpus data given if needed
         if pre_cleaned:
             self.corpus = corpus
@@ -331,5 +331,5 @@ if __name__ == '__main__':
         file.close()
 
     # Generate the text
-    gen = MarkovText(quotes_raw, k=1, separate_punct=True, cached=True)
+    gen = MarkovText(quotes_raw, k=1, pre_cleaned=False, separate_punct=True, cached=True)
     print(gen.generate())
