@@ -30,6 +30,14 @@ class MarkovText(object):
 
 
     def clean_data(self, corpus):
+        """ Clean the data as outlined in the exercise
+
+        Args:
+            corpus (str): the text to be cleaned
+
+        Returns:
+            str: the text after cleaning 
+        """
         # Replace the new lines with spaces
         quotes = corpus.replace('\n', ' ')
 
@@ -111,6 +119,17 @@ class MarkovText(object):
 
 
     def get_term_dict(self, include_repeats=True, separate_punct=False):
+        """ Create the dictionary that will be used to generate the words
+
+        Args:
+            include_repeats (bool, optional): whether to include duplicate words to affect
+            the probability of the word being chosen. Defaults to True.
+
+            separate_punct (bool, optional): whether to treat punctuation as separate tokens. Defaults to False.
+
+        Returns:
+            dict: the dictionary of terms 
+        """
         # Hash the first 200 lines of the corpus, the k value, and punctuation 
         # setting to get a unique id for this dictionary 
         id_data = self.corpus[:200] + str(self.k) + str(separate_punct)
@@ -232,6 +251,15 @@ class MarkovText(object):
 
 
     def generate_list(self, seed_window, term_count):
+        """ Generate a single word and add it to the list returned, recurse term_count times
+
+        Args:
+            seed_window (TokenWindow): the window of words that came before what we are going to generate
+            term_count (int): the number of words to generate in total
+
+        Returns:
+            list(str): a list of generated words
+        """
         # Base case, if no words should be added, return an empty string
         if term_count == 0:
             return list(seed_window) 
@@ -248,12 +276,26 @@ class MarkovText(object):
         # Recursively generate more words and return as a list
         return [current_token] + self.generate_list(seed_window, term_count-1)
 
-    def generate(self, seed_terms=None, term_count=15):
+    def generate(self, seed_term=None, term_count=15):
+        """ Generates a string of length term_count + 1 by adding one word at a time
+
+        Args:
+            seed_term (str, optional): a word to start with. Defaults to None.
+            term_count (int, optional): the number of words/tokens to generate. Defaults to 15.
+
+        Raises:
+            ValueError: if the seed_term given is not in the dictionary
+
+        Returns:
+            str: the generated string
+        """
         # Get the starting window values from all the words
         # if none is given
-        if seed_terms is None:
+        if seed_term is None:
             words = list(self.term_dict.keys())
             seed_terms = words[randrange(len(words))]
+        else:
+            seed_terms = [seed_term] 
 
         if not seed_terms in self.term_dict.keys():
             raise ValueError('Invalid seed term. Must be a word from the corpus.')
