@@ -4,7 +4,7 @@ import re
 import os
 import requests
 import pandas as pd
-from apputil import MarkovText 
+from apputil import MarkovText, clean_quotes_data 
 from collections import defaultdict
 
 def get_quotes():
@@ -30,7 +30,7 @@ def get_quotes():
         file.write(quotes_text)
         file.close()
 
-    return quotes_text
+    return clean_quotes_data(quotes_text) 
 
 def get_kjv():
     """ Load the cleaned KJV corpus
@@ -108,7 +108,7 @@ def main():
         for k in range(1, 6):
             print(f'Loading corpus {corpus[0]} with k={k}.')
             # Generate the generator
-            gen = MarkovText(corpus[1], pre_cleaned=(corpus[0] != 'quotes'), k=k, separate_punct=True, verbose=True)
+            gen = MarkovText(corpus[1], k=k, separate_punct=True, verbose=True)
 
             # Print a quote for fun while we're here
             print(f'\nGenerating a quote from {corpus[0]} with k={k}: {gen.generate()}\n')

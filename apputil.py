@@ -9,15 +9,12 @@ from token_window import TokenWindow
 
 class MarkovText(object):
 
-    def __init__(self, corpus, k=1, pre_cleaned=True, include_repeats=True, separate_punct=False, cached=True, verbose=False):
-        # Clean the corpus data given if needed
-        if pre_cleaned:
-            self.corpus = corpus
-        else:
-            self.corpus = self.clean_data(corpus)
-
+    def __init__(self, corpus, k=1, include_repeats=True, separate_punct=False, cached=True, verbose=False):
         # The window size for creating the dictionary
         self.k = k
+
+        # The text
+        self.corpus = corpus
 
         # Whether or not to cache the dictionary to avoid long processing times later on
         self.cached = cached
@@ -27,37 +24,6 @@ class MarkovText(object):
 
         # Get the term dictionary that we will use for generation
         self.term_dict = self.get_term_dict(include_repeats=include_repeats, separate_punct=separate_punct)
-
-
-    def clean_data(self, corpus):
-        """ Clean the data as outlined in the exercise
-
-        Args:
-            corpus (str): the text to be cleaned
-
-        Returns:
-            str: the text after cleaning 
-        """
-        # Replace the new lines with spaces
-        quotes = corpus.replace('\n', ' ')
-
-        # Split the quotes within quotes from the rest of the text
-        quotes = re.split("[“”]", quotes)
-
-        # Get every other line
-        quotes = quotes[1::2]
-
-        # Create one long corpus of text
-        corpus = ' '.join(quotes)
-
-        # Remove long whitespaces
-        corpus = re.sub(r"\s+", " ", corpus)
-
-        # Remove leading/trailing whitespaces
-        corpus = corpus.strip()
-
-        # Return the cleaned data
-        return corpus
 
 
     def separate_punctuation(self, text):
@@ -277,7 +243,7 @@ class MarkovText(object):
         return [current_token] + self.generate_list(seed_window, term_count-1)
 
     def generate(self, seed_term=None, term_count=15):
-        """ Generates a string of length term_count + 1 by adding one word at a time
+        """ Generates a string of length term_count by adding one word at a time
 
         Args:
             seed_term (str, optional): a word to start with. Defaults to None.
@@ -304,11 +270,41 @@ class MarkovText(object):
         seed_window = TokenWindow(self.k, seed_terms)
 
         # Recursively generate a list of words
-        word_list = self.generate_list(seed_window, term_count)
+        word_list = self.generate_list(seed_window, term_count - 1)
 
         # Join them into a string
         return ' '.join(word_list)
 
+
+def clean_quotes_data(corpus):
+    """ Clean the data as outlined in the exercise
+
+    Args:
+        corpus (str): the text to be cleaned
+
+    Returns:
+        str: the text after cleaning 
+    """
+    # Replace the new lines with spaces
+    quotes = corpus.replace('\n', ' ')
+
+    # Split the quotes within quotes from the rest of the text
+    quotes = re.split("[“”]", quotes)
+
+    # Get every other line
+    quotes = quotes[1::2]
+
+    # Create one long corpus of text
+    corpus = ' '.join(quotes)
+
+    # Remove long whitespaces
+    corpus = re.sub(r"\s+", " ", corpus)
+
+    # Remove leading/trailing whitespaces
+    corpus = corpus.strip()
+
+    # Return the cleaned data
+    return corpus
 
 # Testing
 if __name__ == '__main__':
@@ -331,5 +327,6 @@ if __name__ == '__main__':
         file.close()
 
     # Generate the text
-    gen = MarkovText(quotes_raw, k=1, pre_cleaned=False, separate_punct=True, cached=True)
+    quotes = clean_quotes_data(quotes_raw)
+    gen = MarkovText(quotes, k=1, separate_punct=True, cached=True)
     print(gen.generate())
